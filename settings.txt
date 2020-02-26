@@ -3,7 +3,7 @@
 
 [app]
 connect_sonar = True
-connect_lidar = False
+connect_lidar = True
 
 [sonar]
 start_freq = 60000

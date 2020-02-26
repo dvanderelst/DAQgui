@@ -3,6 +3,7 @@ import time
 import serial
 import numpy
 import struct
+import Ports
 
 # Color conventions
 # Green connected
@@ -44,10 +45,8 @@ class Sonar:
 
     def find_port(self, key=False):
         if not key: key = self.product_key
-        ports = list_ports.comports()
-        for port in ports:
-            if key in str(port.product): return port.device
-        return False
+        port = Ports.get_port(key)
+        return port
 
     def connect(self, port=False):
         if not port: port = self.find_port()

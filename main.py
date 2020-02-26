@@ -18,6 +18,8 @@ import re
 import matplotlib
 import pandas
 import shutil
+import Ports
+import Logger
 
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg# NavigationToolbar2TkAgg
@@ -39,6 +41,9 @@ def process_scans(scans):
 
 class HelloApp:
     def __init__(self, master):
+        # Prepare Logger
+        self.logger = Logger.Logger('DAQgui')
+
         # Read settings
         self.settings = configparser.ConfigParser()
         self.settings.read('settings.txt')
@@ -80,6 +85,7 @@ class HelloApp:
 
         # Prepare Sonar
         if self.connect_sonar:
+            self.logger.print_log('Connecting to Sonar')
             self.sonar = Sonar.Sonar()
             self.sonar.connect()
             start_freq = self.settings.getint('sonar', 'start_freq')
@@ -89,8 +95,11 @@ class HelloApp:
             self.sonar.build_charge()
 
         if self.connect_lidar:
+            self.logger.print_log('Connecting to Lidar')
             self.scan_thread = threading.Thread(target=self.scanning)
             self.scan_thread.start()
+
+
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
@@ -100,10 +109,12 @@ class HelloApp:
         self.counter_value.set(0)
         self.repeat_value.set(3)
         self.status_value.set('Ready')
+        self.logger.print_log('Ready')
 
     def scanning(self):
         from sweeppy import Sweep
-        with Sweep('/dev/ttyUSB0') as sweep:
+        port = Ports.get_port('FT230X Basic UART')
+        with Sweep(port) as sweep:
             sweep.start_scanning()
             for scan in sweep.get_scans():
                 data = ('{}\n'.format(scan))
@@ -135,7 +146,9 @@ class HelloApp:
 
     def do_measurement(self, event):
         folder = self.folder_name.get()
-        if folder == '': return
+        if folder == '':
+            self.logger.print_log('Provide a measurement name.')
+            return
         data_folder = os.path.join('data', folder)
         library.make_folder(data_folder)
         shutil.copy('settings.txt', data_folder + '/settings.txt')
@@ -157,6 +170,7 @@ class HelloApp:
         for repetition in range(repeats):
             data = numpy.random.rand(7000, 2)
             message = 'Performing measurement %s, %i/%i ' % (current_counter_str, repetition + 1, repeats)
+            self.logger.print_log(message)
             self.status_value.set(message)
             self.status.update_idletasks()
             if self.connect_sonar:
@@ -178,6 +192,7 @@ class HelloApp:
         #
         if self.connect_lidar:
             message = 'Performing lidar measurement'
+            self.logger.print_log(message)
             self.status_value.set(message)
             self.status.update_idletasks()
 
@@ -195,6 +210,7 @@ class HelloApp:
             lidar_data.to_csv(output_file)
 
         message = 'Measurement %s completed' % (current_counter_str)
+        self.logger.print_log(message)
         self.status_value.set(message)
         self.status.update_idletasks()
 
