@@ -1,11 +1,10 @@
-#dac_sample_freq = 3.6e5
-#adc_sample_freq = 3.0e5
 
-[app]
 connect_sonar = True
 connect_lidar = True
+connect_servo = True
 
-[sonar]
+servo_positions = [10, 20, 30, 40, 50, 60]
+
 start_freq = 60000
 end_freq = 20000
 samples = 1080

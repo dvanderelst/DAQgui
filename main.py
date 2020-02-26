@@ -5,24 +5,27 @@ Created on Tue May 16 13:17:23 2017
 
 @author: dieter
 """
-import Sonar
-import tkinter as tk
-import configparser
-from tkinter import W, E, N, S
-import library
 import os
-import time
-import numpy
-import threading
 import re
-import matplotlib
-import pandas
 import shutil
-import Ports
+import threading
+import time
+import tkinter as tk
+from tkinter import W, E
+
+import matplotlib
+import numpy
+import pandas
+
+import Device
 import Logger
+import Ports
+import Sonar
+import library
+import settings
 
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg# NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 
 
@@ -31,7 +34,7 @@ def process_scans(scans):
     result = re.findall('\d+', scans)
     result = [int(x) for x in result]
     converted = []
-    while len(result)>0:
+    while len(result) > 0:
         angle = result.pop(0)
         distance = result.pop(0)
         strength = result.pop(0)
@@ -42,13 +45,13 @@ def process_scans(scans):
 class HelloApp:
     def __init__(self, master):
         # Prepare Logger
+        self.servo_positions = [0]
         self.logger = Logger.Logger('DAQgui')
 
         # Read settings
-        self.settings = configparser.ConfigParser()
-        self.settings.read('settings.txt')
-        self.connect_lidar = self.settings.getboolean('app', 'connect_lidar')
-        self.connect_sonar = self.settings.getboolean('app', 'connect_sonar')
+        self.connect_lidar = settings.connect_lidar
+        self.connect_sonar = settings.connect_sonar
+        self.connect_servo = settings.connect_servo
 
         self.folder_name = tk.StringVar()
         self.counter_value = tk.IntVar()
@@ -88,9 +91,9 @@ class HelloApp:
             self.logger.print_log('Connecting to Sonar')
             self.sonar = Sonar.Sonar()
             self.sonar.connect()
-            start_freq = self.settings.getint('sonar', 'start_freq')
-            end_freq = self.settings.getint('sonar', 'end_freq')
-            samples = self.settings.getint('sonar', 'samples')
+            start_freq = settings.start_freq
+            end_freq = settings.end_freq
+            samples = settings.samples
             self.sonar.set_signal(start_freq, end_freq, samples)
             self.sonar.build_charge()
 
@@ -99,7 +102,10 @@ class HelloApp:
             self.scan_thread = threading.Thread(target=self.scanning)
             self.scan_thread.start()
 
-
+        if self.connect_servo:
+            self.logger.print_log('Connecting to servo')
+            self.servo_board = Device.BoardDevice()
+            self.servo_positions = settings.servo_positions
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
@@ -121,7 +127,7 @@ class HelloApp:
                 self.current_scan = process_scans(data)
                 self.current_scan_time = time.asctime()
 
-    def get_scans(self, n = 3):
+    def get_scans(self, n=3):
         scans = self.current_scan
         stamp = self.current_scan_time
         message = 'Got scan %i/%i ' % (1, n)
@@ -131,16 +137,16 @@ class HelloApp:
             while self.current_scan_time == stamp: time.sleep(0.1)
             scans = scans + self.current_scan
             stamp = self.current_scan_time
-            message = 'Got scan %i/%i ' % (x+1, n)
+            message = 'Got scan %i/%i ' % (x + 1, n)
             self.status_value.set(message)
             self.status.update_idletasks()
 
         all_samples = pandas.DataFrame(scans)
-        all_samples.columns = ['degrees','distance', 'strength']
-        all_samples['degrees'] = all_samples['degrees'] / 1000 # milli-degress to degrees
+        all_samples.columns = ['degrees', 'distance', 'strength']
+        all_samples['degrees'] = all_samples['degrees'] / 1000  # milli-degress to degrees
         all_samples['rad'] = numpy.deg2rad(all_samples['degrees'])
-        all_samples['distance'] = all_samples['distance'] / 10 # cm to mm
-        all_samples['x'] = all_samples['distance'] * numpy.cos(all_samples['rad'] )
+        all_samples['distance'] = all_samples['distance'] / 10  # cm to mm
+        all_samples['x'] = all_samples['distance'] * numpy.cos(all_samples['rad'])
         all_samples['y'] = all_samples['distance'] * numpy.sin(all_samples['rad'])
         return all_samples
 
@@ -151,38 +157,42 @@ class HelloApp:
             return
         data_folder = os.path.join('data', folder)
         library.make_folder(data_folder)
-        shutil.copy('settings.txt', data_folder + '/settings.txt')
+        shutil.copy('settings.py', data_folder + '/settings.py')
         files = library.get_files(data_folder)
-        files.remove('settings.txt')
+        files.remove('settings.py')
         numbers = library.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
         self.counter_value.set(current_counter)
         repeats = self.repeat_value.get()
-        pause = self.settings.getfloat('sonar', 'pause')
+        pause = settings.pause
 
         #
         # Get acoustic data
         #
 
-        distance_axis = (0.5 * 340 * numpy.arange(0,7000) / 300000)
-        all_data = numpy.empty((7000, 2, repeats))
-        for repetition in range(repeats):
-            data = numpy.random.rand(7000, 2)
-            message = 'Performing measurement %s, %i/%i ' % (current_counter_str, repetition + 1, repeats)
-            self.logger.print_log(message)
-            self.status_value.set(message)
-            self.status.update_idletasks()
-            if self.connect_sonar:
-                data = self.sonar.measure()
-                data = Sonar.convert_data(data, 7000)
-            all_data[:, :, repetition] = data
-            time.sleep(pause)
+        distance_axis = (0.5 * 340 * numpy.arange(0, 7000) / 300000)
+        n_positions = len(self.servo_positions)
+        all_data = numpy.empty((7000, 2, repeats, n_positions))
+        for position_i in range(n_positions):
+            position = self.servo_positions[position_i]
+            for repetition in range(repeats):
+                data = numpy.random.rand(7000, 2)
+                message = 'Performing measurement %s, %i/%i @ position %i ' % (current_counter_str, repetition + 1, repeats, position)
+                self.logger.print_log(message)
+                self.status_value.set(message)
+                self.status.update_idletasks()
+                if self.connect_sonar:
+                    data = self.sonar.measure()
+                    data = Sonar.convert_data(data, 7000)
+                all_data[:, :, repetition, position_i] = data
+                time.sleep(pause)
 
-        mean_data = numpy.mean(all_data, axis=2)
-        self.axis1.clear()
-        self.axis1.plot(distance_axis, mean_data)
-        self.canvas.draw()
+            mean_data = numpy.mean(all_data, axis=(2, 3))
+            self.axis1.clear()
+            self.axis1.plot(distance_axis, mean_data)
+            self.axis1.set_title('Acoustic data')
+            self.canvas.draw()
 
         output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
         numpy.save(output_file, all_data)
@@ -191,7 +201,7 @@ class HelloApp:
         # Get LIDAR DATA
         #
         if self.connect_lidar:
-            message = 'Performing lidar measurement'
+            message = 'Performing LIDAR measurement'
             self.logger.print_log(message)
             self.status_value.set(message)
             self.status.update_idletasks()
