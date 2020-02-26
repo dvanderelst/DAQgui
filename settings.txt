@@ -1,5 +1,12 @@
+#dac_sample_freq = 3.6e5
+#adc_sample_freq = 3.0e5
+
+[app]
+connect_sonar = True
+connect_lidar = False
+
 [sonar]
-start_freq = 40001
-end_freq = 39999
-samples = 100
+start_freq = 60000
+end_freq = 20000
+samples = 1080
 pause = 0.1

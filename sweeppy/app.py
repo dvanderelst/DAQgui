@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import sys
-import time
 import queue
 import threading
 
 from sweeppy import Sweep
-import re
+
 
 # Below we create three worker threads:
 #  - The producer thread continuously putting scans into an unbounded queue
@@ -18,18 +17,6 @@ import re
 #    produce otherwise memory usage will grow over time.
 #  - If you make the queue bounded look into queue `put` and `get` functions
 #    and their blocking behavior. You probably want a ringbuffer semantic.
-
-def process_scans(scans):
-    scans = str(scans)
-    result = re.findall('\d+', scans)
-    result = [int(x) for x in result]
-    converted = []
-    while len(result)>0:
-        angle = result.pop(0)
-        distance = result.pop(0)
-        strength = result.pop(0)
-        converted.append([angle, distance, strength])
-    return converted
 
 class Scanner(threading.Thread):
     def __init__(self, dev, queue, done):
