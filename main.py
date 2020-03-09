@@ -165,7 +165,6 @@ class HelloApp:
         current_counter_str = str(current_counter).rjust(4, '0')
         self.counter_value.set(current_counter)
         repeats = self.repeat_value.get()
-        pause = settings.pause
 
         #
         # Get acoustic data
@@ -186,13 +185,14 @@ class HelloApp:
                     data = self.sonar.measure()
                     data = Sonar.convert_data(data, 7000)
                 all_data[:, :, repetition, position_i] = data
-                time.sleep(pause)
+                time.sleep(settings.measurement_pause)
 
             mean_data = numpy.mean(all_data, axis=(2, 3))
             self.axis1.clear()
             self.axis1.plot(distance_axis, mean_data)
             self.axis1.set_title('Acoustic data')
             self.canvas.draw()
+            time.sleep(settings.servo_pause)
 
         output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
         numpy.save(output_file, all_data)
