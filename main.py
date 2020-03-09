@@ -5,22 +5,27 @@ Created on Tue May 16 13:17:23 2017
 
 @author: dieter
 """
-import Sonar
-import tkinter as tk
-import configparser
-from tkinter import W, E, N, S
-import library
 import os
-import time
-import numpy
-from sweeppy import Sweep
-import threading
 import re
+import shutil
+import threading
+import time
+import tkinter as tk
+from tkinter import W, E
+
 import matplotlib
+import numpy
 import pandas
 
+import Device
+import Logger
+import Ports
+import Sonar
+import library
+import settings
+
 matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg# NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 
 
@@ -29,7 +34,7 @@ def process_scans(scans):
     result = re.findall('\d+', scans)
     result = [int(x) for x in result]
     converted = []
-    while len(result)>0:
+    while len(result) > 0:
         angle = result.pop(0)
         distance = result.pop(0)
         strength = result.pop(0)
@@ -39,7 +44,14 @@ def process_scans(scans):
 
 class HelloApp:
     def __init__(self, master):
-        self.use_board = True
+        # Prepare Logger
+        self.servo_positions = [0]
+        self.logger = Logger.Logger('DAQgui')
+
+        # Read settings
+        self.connect_lidar = settings.connect_lidar
+        self.connect_sonar = settings.connect_sonar
+        self.connect_servo = settings.connect_servo
 
         self.folder_name = tk.StringVar()
         self.counter_value = tk.IntVar()
@@ -70,27 +82,30 @@ class HelloApp:
         self.measure.grid(row=2, column=0, sticky=W + E)
         self.status.grid(row=4, column=0, columnspan=3, sticky=W + E)
         self.canvas_widget.grid(row=3, column=0, columnspan=3)
-
-        # Read settings
-        self.settings = configparser.ConfigParser()
-        self.settings.read('settings.txt')
-
-        # Prepare Sonar
-        self.sonar = Sonar.Sonar()
-        self.sonar.connect()
-        start_freq = self.settings.getint('sonar', 'start_freq')
-        end_freq = self.settings.getint('sonar', 'end_freq')
-        samples = self.settings.getint('sonar', 'samples')
-        self.sonar.set_signal(start_freq, end_freq, samples)
-        self.sonar.build_charge()
-
         # Scan variables
         self.current_scan = None
         self.current_scan_time = None
-        self.scan_thread = threading.Thread(target=self.scanning)
-        self.scan_thread.start()
 
-        #
+        # Prepare Sonar
+        if self.connect_sonar:
+            self.logger.print_log('Connecting to Sonar')
+            self.sonar = Sonar.Sonar()
+            self.sonar.connect()
+            start_freq = settings.start_freq
+            end_freq = settings.end_freq
+            samples = settings.samples
+            self.sonar.set_signal(start_freq, end_freq, samples)
+            self.sonar.build_charge()
+
+        if self.connect_lidar:
+            self.logger.print_log('Connecting to Lidar')
+            self.scan_thread = threading.Thread(target=self.scanning)
+            self.scan_thread.start()
+
+        if self.connect_servo:
+            self.logger.print_log('Connecting to servo')
+            self.servo_board = Device.BoardDevice()
+            self.servo_positions = settings.servo_positions
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
@@ -100,16 +115,19 @@ class HelloApp:
         self.counter_value.set(0)
         self.repeat_value.set(3)
         self.status_value.set('Ready')
+        self.logger.print_log('Ready')
 
     def scanning(self):
-        with Sweep('/dev/ttyUSB0') as sweep:
+        from sweeppy import Sweep
+        port = Ports.get_port('FT230X Basic UART')
+        with Sweep(port) as sweep:
             sweep.start_scanning()
             for scan in sweep.get_scans():
                 data = ('{}\n'.format(scan))
                 self.current_scan = process_scans(data)
                 self.current_scan_time = time.asctime()
 
-    def get_scans(self, n = 3):
+    def get_scans(self, n=3):
         scans = self.current_scan
         stamp = self.current_scan_time
         message = 'Got scan %i/%i ' % (1, n)
@@ -119,69 +137,90 @@ class HelloApp:
             while self.current_scan_time == stamp: time.sleep(0.1)
             scans = scans + self.current_scan
             stamp = self.current_scan_time
-            message = 'Got scan %i/%i ' % (x+1, n)
+            message = 'Got scan %i/%i ' % (x + 1, n)
             self.status_value.set(message)
             self.status.update_idletasks()
 
         all_samples = pandas.DataFrame(scans)
-        all_samples.columns = ['degrees','distance', 'strength']
-        all_samples['degrees'] = all_samples['degrees'] / 1000 # milli-degress to degrees
+        all_samples.columns = ['degrees', 'distance', 'strength']
+        all_samples['degrees'] = all_samples['degrees'] / 1000  # milli-degress to degrees
         all_samples['rad'] = numpy.deg2rad(all_samples['degrees'])
-        all_samples['distance'] = all_samples['distance'] / 10 # cm to mm
-        all_samples['x'] = all_samples['distance'] * numpy.cos(all_samples['rad'] )
+        all_samples['distance'] = all_samples['distance'] / 10  # cm to mm
+        all_samples['x'] = all_samples['distance'] * numpy.cos(all_samples['rad'])
         all_samples['y'] = all_samples['distance'] * numpy.sin(all_samples['rad'])
         return all_samples
 
     def do_measurement(self, event):
         folder = self.folder_name.get()
-        if folder == '': return
+        if folder == '':
+            self.logger.print_log('Provide a measurement name.')
+            return
         data_folder = os.path.join('data', folder)
         library.make_folder(data_folder)
+        shutil.copy('settings.py', data_folder + '/settings.py')
         files = library.get_files(data_folder)
+        files.remove('settings.py')
         numbers = library.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
         self.counter_value.set(current_counter)
         repeats = self.repeat_value.get()
-        pause = self.settings.getfloat('sonar', 'pause')
 
-        all_data = numpy.empty((7000, 2, repeats))
-        for repetition in range(repeats):
-            message = 'Performing measurement %s, %i/%i ' % (current_counter_str, repetition + 1, repeats)
-            self.status_value.set(message)
-            self.status.update_idletasks()
-            data = self.sonar.measure()
-            data = Sonar.convert_data(data, 7000)
-            all_data[:, :, repetition] = data
-            time.sleep(pause)
+        #
+        # Get acoustic data
+        #
 
-        self.axis1.clear()
-        self.axis1.plot(data)
-        self.canvas.draw()
+        distance_axis = (0.5 * 340 * numpy.arange(0, 7000) / 300000)
+        n_positions = len(self.servo_positions)
+        all_data = numpy.empty((7000, 2, repeats, n_positions))
+        for position_i in range(n_positions):
+            position = self.servo_positions[position_i]
+            for repetition in range(repeats):
+                data = numpy.random.rand(7000, 2)
+                message = 'Performing measurement %s, %i/%i @ position %i ' % (current_counter_str, repetition + 1, repeats, position)
+                self.logger.print_log(message)
+                self.status_value.set(message)
+                self.status.update_idletasks()
+                if self.connect_sonar:
+                    data = self.sonar.measure()
+                    data = Sonar.convert_data(data, 7000)
+                all_data[:, :, repetition, position_i] = data
+                time.sleep(settings.measurement_pause)
+
+            mean_data = numpy.mean(all_data, axis=(2, 3))
+            self.axis1.clear()
+            self.axis1.plot(distance_axis, mean_data)
+            self.axis1.set_title('Acoustic data')
+            self.canvas.draw()
+            time.sleep(settings.servo_pause)
 
         output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
         numpy.save(output_file, all_data)
 
-        message = 'Performing lidar measurement'
-        self.status_value.set(message)
-        self.status.update_idletasks()
+        #
+        # Get LIDAR DATA
+        #
+        if self.connect_lidar:
+            message = 'Performing LIDAR measurement'
+            self.logger.print_log(message)
+            self.status_value.set(message)
+            self.status.update_idletasks()
 
-        lidar_data = self.get_scans()
+            lidar_data = self.get_scans()
+            plot_data = lidar_data[lidar_data['strength'] > 50]
+            mns = plot_data.groupby('degrees')
+            mns = mns.mean()
+            mns = mns.reset_index()
 
-        plot_data = lidar_data[lidar_data['strength'] > 50]
-        mns = plot_data.groupby('degrees')
-        mns = mns.mean()
-        mns = mns.reset_index()
-
-        self.axis2.clear()
-        self.axis2.scatter(mns['x'], mns['y'], s=0.1)
-        self.axis2.axis('equal')
-        self.canvas.draw()
-
-        output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.csv')
-        lidar_data.to_csv(output_file)
+            self.axis2.clear()
+            self.axis2.scatter(mns['x'], mns['y'], s=0.1)
+            self.axis2.axis('equal')
+            self.canvas.draw()
+            output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.csv')
+            lidar_data.to_csv(output_file)
 
         message = 'Measurement %s completed' % (current_counter_str)
+        self.logger.print_log(message)
         self.status_value.set(message)
         self.status.update_idletasks()
 
