@@ -175,21 +175,28 @@ class HelloApp:
         all_data = numpy.empty((7000, 2, repeats, n_positions))
         for position_i in range(n_positions):
             position = self.servo_positions[position_i]
+            if self.connect_servo:
+                self.servo_board.device.set_target(0, position)
+                time.sleep(settings.servo_pause)
+
             for repetition in range(repeats):
                 data = numpy.random.rand(7000, 2)
                 message = 'Performing measurement %s, %i/%i @ position %i ' % (current_counter_str, repetition + 1, repeats, position)
                 self.logger.print_log(message)
                 self.status_value.set(message)
                 self.status.update_idletasks()
+
                 if self.connect_sonar:
                     data = self.sonar.measure()
                     data = Sonar.convert_data(data, 7000)
                 all_data[:, :, repetition, position_i] = data
                 time.sleep(settings.measurement_pause)
 
-            mean_data = numpy.mean(all_data, axis=(2, 3))
+            current_measurement_data = all_data[:, :, :, position_i]
+            mean_data = numpy.mean(current_measurement_data, axis=(2))
+            #print(current_measurement_data.shape, mean_data.shape)
             self.axis1.clear()
-            self.axis1.plot(distance_axis, mean_data)
+            self.axis1.plot(distance_axis, mean_data, alpha=0.5)
             self.axis1.set_title('Acoustic data')
             self.canvas.draw()
             time.sleep(settings.servo_pause)

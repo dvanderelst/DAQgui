@@ -1,9 +1,10 @@
+import numpy
 
-connect_sonar = False
+connect_sonar = True
 connect_lidar = False
-connect_servo = False
+connect_servo = True
 
-servo_positions = [10, 20, 30, 40, 50, 60]
+servo_positions = numpy.linspace(400, 2000, 5)
 
 start_freq = 60000
 end_freq = 20000
