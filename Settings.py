@@ -2,11 +2,12 @@ import numpy
 
 connect_sonar = True
 connect_lidar = False
-connect_servo = True
+connect_servo = False
 
 default_repeats = 5
 
 #ports on windows
+# Only used when running on linux
 servo_port = 'COM4'
 sonar_port = 'COM5'
 
