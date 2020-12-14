@@ -1,29 +1,27 @@
 import numpy
-from scipy.interpolate import interp1d
-import simpleaudio as sa
 
-# Sounds
-filename = 'ding.wav'
-done_sound = sa.WaveObject.from_wave_file(filename)
-
-# HS422
-# Range 448-2400
 connect_sonar = True
 connect_lidar = False
 connect_servo = False
 
-f = interp1d([-90, 0, 90], [538, 1435, 2400])
-servo_positions = numpy.linspace(-30,30,11)
-servo_positions = f(servo_positions)
-servo_positions = [0]
-#print(servo_positions)
+default_repeats = 5
 
-# sample rate == 300000
-auto_measure_delay = 5
-start_freq = 80000
-end_freq = 30000
-samples = 500
+#ports on windows
+# Only used when running on linux
+servo_port = 'COM4'
+sonar_port = 'COM5'
+
+servo_zero = 1220
+servo_range = [400, 2000]
+
+max_deviation = min(servo_zero - servo_range[0], servo_range[1] - servo_zero)
+min_position = servo_zero - max_deviation
+max_position = servo_zero + max_deviation
+
+servo_positions = numpy.linspace(min_position, max_position, 9)
+
+start_freq = 40001
+end_freq = 39999
+samples = 100
 measurement_pause = 0.1
-servo_pause = 3
-default_repeats = 3
-plot_start_sample = 500
+servo_pause = 1
