@@ -21,8 +21,8 @@ import Device
 import Logger
 import Ports
 import Sonar
-import library
-import settings
+import Library
+import Settings
 
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
@@ -49,14 +49,15 @@ class HelloApp:
         self.logger = Logger.Logger('DAQgui')
 
         # Read settings
-        self.connect_lidar = settings.connect_lidar
-        self.connect_sonar = settings.connect_sonar
-        self.connect_servo = settings.connect_servo
+        self.connect_lidar = Settings.connect_lidar
+        self.connect_sonar = Settings.connect_sonar
+        self.connect_servo = Settings.connect_servo
 
         self.folder_name = tk.StringVar()
         self.counter_value = tk.IntVar()
         self.repeat_value = tk.IntVar()
         self.status_value = tk.StringVar()
+        self.auto_value = tk.IntVar()
 
         # Figure
         self.fig = Figure(figsize=(10, 5), dpi=100)
@@ -70,6 +71,7 @@ class HelloApp:
         self.counter = tk.Label(textvariable=self.counter_value, width=10, justify=tk.CENTER)
         self.status = tk.Message(textvariable=self.status_value, width=500)
         self.measure = tk.Button(master, text="Measure")
+        self.auto = tk.Checkbutton(master, text='Auto', variable=self.auto_value)
 
         # Figure widget
         self.canvas = FigureCanvasTkAgg(self.fig, self.master)
@@ -80,20 +82,24 @@ class HelloApp:
         self.counter.grid(row=0, column=2, sticky=W + E)
         self.repeats.grid(row=1, column=0, sticky=W + E)
         self.measure.grid(row=2, column=0, sticky=W + E)
+        self.auto.grid(row=2, column=1, sticky=W + E)
         self.status.grid(row=4, column=0, columnspan=3, sticky=W + E)
         self.canvas_widget.grid(row=3, column=0, columnspan=3)
         # Scan variables
         self.current_scan = None
         self.current_scan_time = None
 
+        p = Ports.Ports()
+        p.print()
+
         # Prepare Sonar
         if self.connect_sonar:
             self.logger.print_log('Connecting to Sonar')
             self.sonar = Sonar.Sonar()
             self.sonar.connect()
-            start_freq = settings.start_freq
-            end_freq = settings.end_freq
-            samples = settings.samples
+            start_freq = Settings.start_freq
+            end_freq = Settings.end_freq
+            samples = Settings.samples
             self.sonar.set_signal(start_freq, end_freq, samples)
             self.sonar.build_charge()
 
@@ -105,7 +111,7 @@ class HelloApp:
         if self.connect_servo:
             self.logger.print_log('Connecting to servo')
             self.servo_board = Device.BoardDevice()
-            self.servo_positions = settings.servo_positions
+            self.servo_positions = Settings.servo_positions
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
@@ -113,7 +119,7 @@ class HelloApp:
 
         # Set initial values
         self.counter_value.set(0)
-        self.repeat_value.set(3)
+        self.repeat_value.set(Settings.default_repeats)
         self.status_value.set('Ready')
         self.logger.print_log('Ready')
 
@@ -150,17 +156,19 @@ class HelloApp:
         all_samples['y'] = all_samples['distance'] * numpy.sin(all_samples['rad'])
         return all_samples
 
+
+    def start_measurment_thread(self, event):
+        t = threading.Thread(target=self.do_measurement(event))
+
     def do_measurement(self, event):
         folder = self.folder_name.get()
-        if folder == '':
-            self.logger.print_log('Provide a measurement name.')
-            return
+        if folder == '': folder = 'default_test'
         data_folder = os.path.join('data', folder)
-        library.make_folder(data_folder)
-        shutil.copy('settings.py', data_folder + '/settings.py')
-        files = library.get_files(data_folder)
-        files.remove('settings.py')
-        numbers = library.extract_numbers(files)
+        Library.make_folder(data_folder)
+        shutil.copy('Settings.py', data_folder + '/Settings.py')
+        files = Library.get_files(data_folder)
+        files.remove('Settings.py')
+        numbers = Library.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
         self.counter_value.set(current_counter)
@@ -177,7 +185,7 @@ class HelloApp:
             position = self.servo_positions[position_i]
             if self.connect_servo:
                 self.servo_board.device.set_target(0, position)
-                time.sleep(settings.servo_pause)
+                time.sleep(Settings.servo_pause)
 
             for repetition in range(repeats):
                 data = numpy.random.rand(7000, 2)
@@ -190,16 +198,16 @@ class HelloApp:
                     data = self.sonar.measure()
                     data = Sonar.convert_data(data, 7000)
                 all_data[:, :, repetition, position_i] = data
-                time.sleep(settings.measurement_pause)
+                time.sleep(Settings.measurement_pause)
 
             current_measurement_data = all_data[:, :, :, position_i]
             mean_data = numpy.mean(current_measurement_data, axis=(2))
             #print(current_measurement_data.shape, mean_data.shape)
             self.axis1.clear()
-            self.axis1.plot(distance_axis, mean_data, alpha=0.5)
+            self.axis1.plot(distance_axis[Settings.plot_start_sample:], mean_data[Settings.plot_start_sample:], alpha=0.5)
             self.axis1.set_title('Acoustic data')
             self.canvas.draw()
-            time.sleep(settings.servo_pause)
+            time.sleep(Settings.servo_pause)
 
         output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
         numpy.save(output_file, all_data)
@@ -230,6 +238,16 @@ class HelloApp:
         self.logger.print_log(message)
         self.status_value.set(message)
         self.status.update_idletasks()
+        Settings.done_sound.play()
+
+        #
+        # Start auto measure
+        #
+        auto_delay = Settings.auto_measure_delay
+        auto = self.auto_value.get()
+        if auto: self.master.after(auto_delay, self.do_measurement(None))
+
+
 
 
 if __name__ == "__main__":
