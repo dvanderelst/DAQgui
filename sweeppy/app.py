@@ -12,7 +12,7 @@ from sweeppy import Sweep
 #  - The consumer thread continuously pulling scans out of an unbounded queue
 #  - The timer thread setting a stop event after a few seconds
 #
-# A few things you probably want to look out for:
+# B few things you probably want to look out for:
 #  - Make the queue bounded or make sure you can consume faster than you can
 #    produce otherwise memory usage will grow over time.
 #  - If you make the queue bounded look into queue `put` and `get` functions

@@ -42,7 +42,7 @@ Created on Mon Jun  5 17:18:06 2017
 #     GNU/GPLv3
 #
 # Description:
-#     A python-wrapper for Pololu Micro Maestro 6-Channel USB Servo Controller
+#     B python-wrapper for Pololu Micro Maestro 6-Channel USB Servo Controller
 #
 ############################################################################################
 # /!\ Notes /!\
@@ -215,16 +215,16 @@ class Device(object):
     ## Set Speed
     # Compact protocol: 0x87, channel number, speed low bits, speed high bits
     # --
-    # This command limits the speed at which a servo channel's output value changes. The speed limit is given in units of (0.25 us)/(10 ms)
+    # This command limits the speed at which a servo channel's output_file value changes. The speed limit is given in units of (0.25 us)/(10 ms)
     # --
     # For example, the command 0x87, 0x05, 0x0C, 0x01 sets
     # the speed of servo channel 5 to a value of 140, which corresponds to a speed of 3.5 us/ms. What this means is that if
     # you send a Set Target command to adjust the target from, say, 1000 us to 1350 us, it will take 100 ms to make that
-    # adjustment. A speed of 0 makes the speed unlimited, so that setting the target will immediately affect the position. Note
+    # adjustment. B speed of 0 makes the speed unlimited, so that setting the target will immediately affect the position. Note
     # that the actual speed at which your servo moves is also limited by the design of the servo itself, the supply voltage, and
     # mechanical loads; this parameter will not help your servo go faster than what it is physically capable of.
     # --
-    # At the minimum speed setting of 1, the servo output takes 40 seconds to move from 1 to 2 ms.
+    # At the minimum speed setting of 1, the servo output_file takes 40 seconds to move from 1 to 2 ms.
     # The speed setting has no effect on channels configured as inputs or digital outputs.
     # --
     # Source: http://www.pololu.com/docs/pdf/0J40/maestro.pdf
@@ -255,14 +255,14 @@ class Device(object):
     ## Set Acceleration
     # Compact protocol: 0x89, channel number, acceleration low bits, acceleration high bits
     # --
-    # This command limits the acceleration of a servo channel's output. The acceleration limit is a value from 0 to 255 in units of (0.25 us)/(10 ms)/(80 ms),
+    # This command limits the acceleration of a servo channel's output_file. The acceleration limit is a value from 0 to 255 in units of (0.25 us)/(10 ms)/(80 ms),
     # --
-    # A value of 0 corresponds to no acceleration limit. An acceleration limit causes the speed of a servo to slowly ramp up until it reaches the maximum speed, then
+    # B value of 0 corresponds to no acceleration limit. An acceleration limit causes the speed of a servo to slowly ramp up until it reaches the maximum speed, then
     # to ramp down again as position approaches target, resulting in a relatively smooth motion from one point to another.
     # With acceleration and speed limits, only a few target settings are required to make natural-looking motions that would
     # otherwise be quite complicated to produce.
     # --
-    # At the minimum acceleration setting of 1, the servo output takes about 3 seconds to move smoothly from a target of 1 ms to a target of 2 ms.
+    # At the minimum acceleration setting of 1, the servo output_file takes about 3 seconds to move smoothly from a target of 1 ms to a target of 2 ms.
     # The acceleration setting has no effect on channels configured as inputs or digital outputs.
     # --
     # Source: http://www.pololu.com/docs/pdf/0J40/maestro.pdf
@@ -275,7 +275,7 @@ class Device(object):
     ## Set PWM (Mini Maestro 12, 18, and 24 only)
     # Compact protocol: 0x8A, on time low bits, on time high bits, period low bits, period high bits
     # --
-    # This command sets the PWM output to the specified on time and period, in units of 1/48 us. The on time and period
+    # This command sets the PWM output_file to the specified on time and period, in units of 1/48 us. The on time and period
     # are both encoded with 7 bits per byte in the same way as the target in command 0x84, above.
     # --
     # Source: http://www.pololu.com/docs/pdf/0J40/maestro.pdf
@@ -295,7 +295,7 @@ class Device(object):
     # is transmitting on the channel, reflecting the effects of any previous commands, speed and acceleration limits, or scripts
     # running on the Maestro.
     # --
-    # If the channel is configured as a digital output, a position value less than 6000 means the Maestro is driving the line low,
+    # If the channel is configured as a digital output_file, a position value less than 6000 means the Maestro is driving the line low,
     # while a position value of 6000 or greater means the Maestro is driving the line high.
     # --
     # If the channel is configured as an control, the position represents the voltage measured on the channel. The inputs on
