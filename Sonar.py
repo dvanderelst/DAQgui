@@ -75,7 +75,7 @@ class Sonar:
     def set_dac(self, rate=None, samples=None):
         if rate is not None: self.dac_sample_freq = int(rate)
         if samples is not None: self.dac_n_samples = int(samples)
-        command1 = '!B,%d,0,0\n' % self.dac_sample_freq
+        command1 = '!A,%d,0,0\n' % self.dac_sample_freq
         command2 = '!C,%d,0,0\n' % self.dac_n_samples
         self.write(command1)
         self.write(command2)
@@ -83,7 +83,7 @@ class Sonar:
     def set_adc(self, rate=None, samples=None):
         if rate is not None: self.adc_sample_freq = int(rate)
         if samples is not None: self.adc_n_samples = int(samples)
-        command1 = '!F,%d,0,0\n' % self.adc_sample_freq
+        command1 = '!B,%d,0,0\n' % self.adc_sample_freq
         command2 = '!D,%d,0,0\n' % self.adc_n_samples
         self.write(command1)
         self.write(command2)
