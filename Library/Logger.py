@@ -17,7 +17,7 @@ class Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
         # create file handler which logs even debug messages
-        log_folder = os.path.join(os.getcwd(), 'logs')
+        log_folder = os.path.join(os.getcwd(), '../logs')
         if file_name is None: file_name = name
         if not os.path.exists(log_folder): os.mkdir(log_folder)
         log_file = os.path.join(log_folder, file_name + '.log')

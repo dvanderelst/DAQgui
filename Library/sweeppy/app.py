@@ -4,7 +4,7 @@ import sys
 import queue
 import threading
 
-from sweeppy import Sweep
+from Library.sweeppy import Sweep
 
 
 # Below we create three worker threads:

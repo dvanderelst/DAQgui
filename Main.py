@@ -5,7 +5,6 @@ Created on Tue May 16 13:17:23 2017
 
 @author: dieter
 """
-import os
 import re
 import shutil
 import threading
@@ -19,14 +18,7 @@ import pandas
 import platform
 import os
 
-import Device
-import Logger
-
-import Library
-import Settings
-import Ports
-import Sonar
-
+from Library import Device, Ports, Logger, Sonar, Settings, DAQmisc
 
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
@@ -135,7 +127,7 @@ class HelloApp:
         self.logger.print_log('Ready')
         
     def scanning(self):
-        from sweeppy import Sweep
+        from Library.sweeppy import Sweep
         port = Ports.get_port('FT230X Basic UART')
         with Sweep(port) as sweep:
             sweep.start_scanning()
@@ -173,11 +165,11 @@ class HelloApp:
             self.logger.print_log('Provide a measurement name.')
             return
         data_folder = os.path.join('data', folder)
-        Library.make_folder(data_folder)
-        shutil.copy('Settings.py', data_folder + '/Settings.py')
-        files = Library.get_files(data_folder)
+        DAQmisc.make_folder(data_folder)
+        shutil.copy('Library/Settings.py', data_folder + '/Settings.py')
+        files = DAQmisc.get_files(data_folder)
         files.remove('Settings.py')
-        numbers = Library.extract_numbers(files)
+        numbers = DAQmisc.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
         self.counter_value.set(current_counter)
@@ -193,7 +185,7 @@ class HelloApp:
         for position_i in range(n_positions):
             position = self.servo_positions[position_i]
             if self.connect_servo:
-                self.servo_board.device.set_target(0, position)
+                self.servo_board.device.set_target(Settings.servo_channel, position)
                 time.sleep(Settings.servo_pause)
 
             for repetition in range(repeats):

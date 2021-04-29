@@ -6,9 +6,10 @@ Created on Sat Jun 24 09:42:38 2017
 @author: dieter
 """
 
-import Maestro
+from Library import Maestro
+from Library import Ports
 import gc
-import Ports
+
 
 class BoardDevice:
     def __init__(self, ser_port=False, verbose=False):

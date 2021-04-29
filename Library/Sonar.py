@@ -1,9 +1,8 @@
-import serial.tools.list_ports as list_ports
 import time
 import serial
 import numpy
 import struct
-import Ports
+from Library import Ports
 
 # Color conventions
 # Green connected
