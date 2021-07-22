@@ -53,7 +53,10 @@ class HelloApp:
         self.logger.print_log('Working directory: ' + wd)
         self.logger.print_log('Connected ports')
         p = Ports.Ports()
-        p.print()
+
+        keys = p.dict.keys()
+        if not keys: self.logger.print_log('<No ports found>')
+        for k in keys: self.logger.print_log('Ports found:', k, p.dict[k])
 
         # Read settings
         self.connect_lidar = Settings.connect_lidar
@@ -67,8 +70,11 @@ class HelloApp:
 
         # Figure
         self.fig = Figure(figsize=(10, 5), dpi=100)
-        self.axis1 = self.fig.add_subplot(121)
-        self.axis2 = self.fig.add_subplot(122)
+        if self.connect_lidar:
+            self.axis1 = self.fig.add_subplot(121)
+            self.axis2 = self.fig.add_subplot(122)
+        if not self.connect_lidar:
+            self.axis1 = self.fig.add_subplot(111)
 
         # Define widgets
         self.master = master
@@ -173,7 +179,7 @@ class HelloApp:
         numbers = DAQmisc.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
-        self.counter_value.set(current_counter)
+        if not Settings.use_time_label: self.counter_value.set(current_counter)
         repeats = self.repeat_value.get()
 
         #
@@ -191,8 +197,8 @@ class HelloApp:
 
             for repetition in range(repeats):
                 data = numpy.random.rand(7000, 2)
-                message = 'Performing measurement %s, %i/%i @ position %i ' % (
-                current_counter_str, repetition + 1, repeats, position)
+                values = (current_counter_str, repetition + 1, repeats, position)
+                message = 'Performing measurement %s, %i/%i @ position %i ' % values
                 self.logger.print_log(message)
                 self.status_value.set(message)
                 self.status.update_idletasks()
@@ -259,10 +265,13 @@ class HelloApp:
             numpy.save(output_file, all_data)
             shutil.copy('Library/Settings.py', settings_file)
             message = 'Data saved: %s' % output_file
+        else:
+            message = 'Data not saved'
 
-            self.logger.print_log(message)
-            self.status_value.set(message)
-            self.status.update_idletasks()
+        self.logger.print_log(message)
+        self.status_value.set(message)
+        self.status.update_idletasks()
+
 
 
 if __name__ == "__main__":
