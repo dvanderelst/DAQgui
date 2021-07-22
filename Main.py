@@ -23,6 +23,8 @@ from Library import Device, Ports, Logger, Sonar, Settings, DAQmisc
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
+import easygui
+import platform
 
 
 def process_scans(scans):
@@ -39,14 +41,14 @@ def process_scans(scans):
 
 
 class HelloApp:
-    def __init__(self, master):        
+    def __init__(self, master):
         # Prepare Logger
         self.logger = Logger.Logger('DAQgui')
-        
-        #list ports
+
+        # list ports
         self.os = platform.system()
         wd = os.getcwd()
-        
+
         self.logger.print_log('Runing on ' + self.os)
         self.logger.print_log('Working directory: ' + wd)
         self.logger.print_log('Connected ports')
@@ -108,7 +110,7 @@ class HelloApp:
             self.logger.print_log('Connecting to Lidar')
             self.scan_thread = threading.Thread(target=self.scanning)
             self.scan_thread.start()
-        
+
         self.servo_positions = [0]
         if self.connect_servo:
             self.logger.print_log('Connecting to servo')
@@ -125,7 +127,7 @@ class HelloApp:
         self.repeat_value.set(Settings.default_repeats)
         self.status_value.set('Ready')
         self.logger.print_log('Ready')
-        
+
     def scanning(self):
         from Library.sweeppy import Sweep
         port = Ports.get_port('FT230X Basic UART')
@@ -160,15 +162,14 @@ class HelloApp:
         return all_samples
 
     def do_measurement(self, event):
+        time_label = time.asctime()
         folder = self.folder_name.get()
         if folder == '':
             self.logger.print_log('Provide a measurement name.')
             return
         data_folder = os.path.join('data', folder)
         DAQmisc.make_folder(data_folder)
-        shutil.copy('Library/Settings.py', data_folder + '/Settings.py')
-        files = DAQmisc.get_files(data_folder)
-        files.remove('Settings.py')
+        files = DAQmisc.get_files(data_folder, extension='npy')
         numbers = DAQmisc.extract_numbers(files)
         current_counter = max(numbers) + 1
         current_counter_str = str(current_counter).rjust(4, '0')
@@ -190,7 +191,8 @@ class HelloApp:
 
             for repetition in range(repeats):
                 data = numpy.random.rand(7000, 2)
-                message = 'Performing measurement %s, %i/%i @ position %i ' % (current_counter_str, repetition + 1, repeats, position)
+                message = 'Performing measurement %s, %i/%i @ position %i ' % (
+                current_counter_str, repetition + 1, repeats, position)
                 self.logger.print_log(message)
                 self.status_value.set(message)
                 self.status.update_idletasks()
@@ -203,19 +205,18 @@ class HelloApp:
 
             current_measurement_data = all_data[:, :, :, position_i]
             mean_data = numpy.mean(current_measurement_data, axis=(2))
-            #print(current_measurement_data.shape, mean_data.shape)
             self.axis1.clear()
             self.axis1.plot(distance_axis, mean_data, alpha=0.5)
             self.axis1.set_title('Acoustic data')
             self.canvas.draw()
             time.sleep(Settings.servo_pause)
 
-        output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
-        numpy.save(output_file, all_data)
+        if Settings.use_time_label: current_counter_str = '_' + time.asctime()
 
         #
         # Get LIDAR DATA
         #
+
         if self.connect_lidar:
             message = 'Performing LIDAR measurement'
             self.logger.print_log(message)
@@ -239,6 +240,29 @@ class HelloApp:
         self.logger.print_log(message)
         self.status_value.set(message)
         self.status.update_idletasks()
+
+        #
+        # Save data
+        #
+
+        comment = easygui.enterbox(msg='Enter a comment.', title='Save data?')
+        if comment == '': comment = '*empty comment*'
+
+        comment_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.txt')
+        output_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.npy')
+        settings_file = os.path.join(data_folder, 'measurement' + current_counter_str + '.set')
+
+        if comment is not None:
+            host = platform.uname()
+            DAQmisc.write_lines(comment_file, [time_label, host, comment])
+            if self.connect_lidar: lidar_data.to_csv(output_file)
+            numpy.save(output_file, all_data)
+            shutil.copy('Library/Settings.py', settings_file)
+            message = 'Data saved: %s' % output_file
+
+            self.logger.print_log(message)
+            self.status_value.set(message)
+            self.status.update_idletasks()
 
 
 if __name__ == "__main__":

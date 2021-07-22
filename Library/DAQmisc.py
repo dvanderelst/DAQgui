@@ -1,9 +1,14 @@
 import os
 import shutil
 import re
-
 import numpy
 from natsort import natsorted
+
+
+def write_lines(filename, lst):
+    f = open(filename, 'w')
+    for x in lst: f.write(str(x) + '\n')
+    f.close()
 
 
 def make_folder(folder, empty=False):
@@ -11,12 +16,12 @@ def make_folder(folder, empty=False):
     if not os.path.exists(folder): os.makedirs(folder)
 
 
-def get_files(folder):
+def get_files(folder, extension):
     contents = os.listdir(folder)
     files = []
     for entry in contents:
         full_path = os.path.join(folder, entry)
-        if os.path.isfile(full_path): files.append(entry)
+        if os.path.isfile(full_path) and entry.endswith(extension): files.append(entry)
     return files
 
 

@@ -1,9 +1,11 @@
 import numpy
 
-connect_sonar = True
+connect_sonar = False
 connect_lidar = False
-connect_servo = True
+connect_servo = False
 default_repeats = 5
+
+use_time_label = True
 
 #ports on windows
 servo_port = 'COM4'

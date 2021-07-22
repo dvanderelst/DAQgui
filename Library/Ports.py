@@ -13,8 +13,7 @@ class Ports:
         self.update()
         keys = self.dict.keys()
         if not keys: print('<No ports found>')
-        for k in keys:
-            print('Ports found:', prefix, k, self.dict[k])
+        for k in keys: print('Ports found:', prefix, k, self.dict[k])
 
     def get_port(self, device):
         self.update()
