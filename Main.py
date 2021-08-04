@@ -18,7 +18,8 @@ import pandas
 import platform
 import os
 
-from Library import Device, Ports, Logger, Sonar, Settings, DAQmisc
+from Library import Device, Logger, Sonar, Settings, DAQmisc
+from pyBat import Ports
 
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # NavigationToolbar2TkAgg
@@ -53,10 +54,11 @@ class HelloApp:
         self.logger.print_log('Working directory: ' + wd)
         self.logger.print_log('Connected ports')
         p = Ports.Ports()
+        p.print()
 
         keys = p.dict.keys()
         if not keys: self.logger.print_log('<No ports found>')
-        for k in keys: self.logger.print_log('Ports found:', k, p.dict[k])
+        for k in keys: self.logger.print_log('Ports found:' + str (k) + str (p.dict[k]))
 
         # Read settings
         self.connect_lidar = Settings.connect_lidar
@@ -102,7 +104,7 @@ class HelloApp:
         # Prepare Sonar
         if self.connect_sonar:
             self.logger.print_log('Connecting to Sonar')
-            self.sonar = Sonar.Sonar()
+            self.sonar = Sonar.Sonar(verbose=True)
             if self.os == 'Linux': self.sonar.connect()
             if self.os == 'Windows': self.sonar.connect(Settings.sonar_port)
 
@@ -111,6 +113,9 @@ class HelloApp:
             samples = Settings.samples
             self.sonar.set_signal(start_freq, end_freq, samples)
             self.sonar.build_charge()
+            self.logger.print_log('Sonar connected')
+            data = self.sonar.measure()
+            Sonar.convert_data(data, 7000)
 
         if self.connect_lidar:
             self.logger.print_log('Connecting to Lidar')
@@ -120,9 +125,15 @@ class HelloApp:
         self.servo_positions = [0]
         if self.connect_servo:
             self.logger.print_log('Connecting to servo')
-            if self.os == 'Linux': self.servo_board = Device.BoardDevice()
-            if self.os == 'Windows': self.servo_board = Device.BoardDevice(Settings.servo_port)
+            if self.os == 'Linux': self.servo_board = Device.BoardDevice(verbose=True)
+            if self.os == 'Windows': self.servo_board = Device.BoardDevice(Settings.servo_port, verbose=True)
             self.servo_positions = Settings.servo_positions
+            self.servo_board.device.set_target(Settings.servo_channel, self.servo_positions[0])
+            time.sleep(0.5)
+            self.servo_board.device.set_target(Settings.servo_channel,  self.servo_positions[-1])
+            time.sleep(0.5)
+            self.servo_board.device.set_target(Settings.servo_channel, Settings.calibrated_center)
+            time.sleep(0.5)
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
@@ -185,8 +196,7 @@ class HelloApp:
         #
         # Get acoustic data
         #
-
-        distance_axis = (0.5 * 340 * numpy.arange(0, 7000) / 300000)
+        distance_axis = (0.5 * 300 * numpy.arange(0, 7000) / 300000)
         n_positions = len(self.servo_positions)
         all_data = numpy.empty((7000, 2, repeats, n_positions))
         for position_i in range(n_positions):

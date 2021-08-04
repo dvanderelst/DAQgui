@@ -2,7 +2,7 @@ import time
 import serial
 import numpy
 import struct
-from Library import Ports
+from pyBat import Ports
 
 # Color conventions
 # Green connected
@@ -12,7 +12,7 @@ from Library import Ports
 # switch off after each command
 
 class Sonar:
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.id = id(self)
         self.product_key = 'FT231X USB UART'
         self.baud_rate = 3e6
@@ -26,7 +26,7 @@ class Sonar:
         self.adc_sample_freq = 3.0e5
         self.adc_n_channels = 2
         self.adc_n_bits = 12
-
+        self.verbose = verbose
         self.connection = None
 
     @property
@@ -49,6 +49,7 @@ class Sonar:
 
     def connect(self, port=False):
         if not port: port = self.find_port()
+        if self.verbose: print('+ Port to be used: ' + str(port))
         if not port: return False
         self.connection = serial.Serial(port, self.baud_rate)
         self.connection.rtscts = True
