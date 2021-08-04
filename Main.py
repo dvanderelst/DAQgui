@@ -115,7 +115,6 @@ class HelloApp:
             self.sonar.build_charge()
             self.logger.print_log('Sonar connected')
             data = self.sonar.measure()
-            print(data)
             Sonar.convert_data(data, 7000)
 
         if self.connect_lidar:
@@ -126,16 +125,15 @@ class HelloApp:
         self.servo_positions = [0]
         if self.connect_servo:
             self.logger.print_log('Connecting to servo')
-
-            #if self.os == 'Linux': self.servo_board = Device.BoardDevice(verbose=True)
-            #if self.os == 'Windows': self.servo_board = Device.BoardDevice(Settings.servo_port, verbose=True)
-            #self.servo_positions = Settings.servo_positions
-            #self.servo_board.device.set_target(Settings.servo_channel, self.servo_positions[0])
-            #time.sleep(0.5)
-            #self.servo_board.device.set_target(Settings.servo_channel,  self.servo_positions[-1])
-            #time.sleep(0.5)
-            #self.servo_board.device.set_target(Settings.servo_channel, Settings.calibrated_center)
-            #time.sleep(0.5)
+            if self.os == 'Linux': self.servo_board = Device.BoardDevice(verbose=True)
+            if self.os == 'Windows': self.servo_board = Device.BoardDevice(Settings.servo_port, verbose=True)
+            self.servo_positions = Settings.servo_positions
+            self.servo_board.device.set_target(Settings.servo_channel, self.servo_positions[0])
+            time.sleep(0.5)
+            self.servo_board.device.set_target(Settings.servo_channel,  self.servo_positions[-1])
+            time.sleep(0.5)
+            self.servo_board.device.set_target(Settings.servo_channel, Settings.calibrated_center)
+            time.sleep(0.5)
 
         # Bindings
         self.measure.bind('<ButtonPress>', self.do_measurement)
