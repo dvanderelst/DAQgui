@@ -7,7 +7,7 @@ Created on Sat Jun 24 09:42:38 2017
 """
 
 from Library import Maestro
-from Library import Ports
+from pyBat import Ports
 import gc
 
 
