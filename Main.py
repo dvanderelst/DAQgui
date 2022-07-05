@@ -128,6 +128,7 @@ class HelloApp:
             if self.os == 'Linux': self.servo_board = Device.BoardDevice(verbose=True)
             if self.os == 'Windows': self.servo_board = Device.BoardDevice(Settings.servo_port, verbose=True)
             self.servo_positions = Settings.servo_positions
+
             self.servo_board.device.set_target(Settings.servo_channel, self.servo_positions[0])
             time.sleep(0.5)
             self.servo_board.device.set_target(Settings.servo_channel,  self.servo_positions[-1])
